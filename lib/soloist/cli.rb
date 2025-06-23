@@ -1,7 +1,8 @@
-require "librarian/chef/cli"
-require "soloist/remote_config"
+# frozen_string_literal: true
+
+require 'berkshelf'
+require "soloist/config"
 require "soloist/spotlight"
-require "awesome_print"
 require "thor"
 
 module Soloist
@@ -10,16 +11,12 @@ module Soloist
     default_task :chef
 
     desc "chef", "Run chef-solo"
-    method_option :remote, :aliases => "-r", :desc => "Run chef-solo on user@host"
-    method_option :identity, :aliases => "-i", :desc => "The SSH identity file"
     def chef
-      install_cookbooks if cheffile_exists?
+      install_cookbooks if berksfile_exists?
       soloist_config.run_chef
     end
 
     desc "run_recipe [cookbook::recipe, ...]", "Run individual recipes"
-    method_option :remote, :aliases => "-r", :desc => "Run recipes on user@host"
-    method_option :identity, :aliases => "-i", :desc => "The SSH identity file"
     def run_recipe(*recipes)
       soloist_config.royal_crown.recipes = recipes
       chef
@@ -32,19 +29,16 @@ module Soloist
 
     no_tasks do
       def install_cookbooks
-        Dir.chdir(File.dirname(rc_path)) do
-          Librarian::Chef::Cli.with_environment do
-            Librarian::Chef::Cli.new.install
-          end
+        rc_repo_path = File.dirname(rc_path)
+        Dir.chdir(rc_repo_path) do
+          berksfile = Berkshelf::Berksfile.from_file('Berksfile')
+          berksfile.install
+          berksfile.vendor(File.expand_path('cookbooks', File.realpath(rc_repo_path)))
         end
       end
 
       def soloist_config
-        @soloist_config ||= if options[:remote]
-          Soloist::RemoteConfig.from_file(rc_path, remote)
-        else
-          Soloist::Config.from_file(rc_path)
-        end.tap do |config|
+        @soloist_config ||= Soloist::Config.from_file(rc_path).tap do |config|
           config.merge!(rc_local) if rc_local_path
         end
       end
@@ -55,16 +49,8 @@ module Soloist
       Soloist::Config.from_file(rc_local_path)
     end
 
-    def remote
-      @remote ||= if options[:identity]
-        Soloist::Remote.from_uri(options[:remote], options[:identity])
-      else
-        Soloist::Remote.from_uri(options[:remote])
-      end
-    end
-
-    def cheffile_exists?
-      File.exists?(File.expand_path("../Cheffile", rc_path))
+    def berksfile_exists?
+      File.exist?(File.expand_path('Berksfile', File.dirname(rc_path)))
     end
 
     def rc_path

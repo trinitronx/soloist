@@ -1,0 +1,44 @@
+---
+name: ci
+
+"on":
+  pull_request:
+  push:
+    branches:
+      - master
+      - main
+      - develop
+
+jobs:
+  rspec:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-13, macos-14, macos-15]
+        ruby:
+          - version: 3.1.0
+          - version: 3.1.2
+          - version: 3.1.4
+          - version: 3.3.5
+          - version: 3.4.0
+            working-directory: ./.github/fixtures
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby.version }}
+          bundler-cache: true
+          working-directory: ${{ matrix.ruby.working-directory || '.' }}
+          cache-version: 3
+      - name: Hack bundler deps for Ruby >= 3.4.0
+        if: startsWith(matrix.ruby.version, '3.4')
+        run: |
+          mkdir -p vendor
+          ln -s .github/fixtures/.bundle .bundle
+          rm Gemfile.lock
+          ln -s .github/fixtures/Gemfile.lock Gemfile.lock
+      - name: Run rspec ci.sh
+        run: |
+          ./script/ci.sh

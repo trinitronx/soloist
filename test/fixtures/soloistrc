@@ -1,0 +1,5 @@
+recipes:
+# no-op testing cookbook
+- ckbk
+
+#node_attributes:

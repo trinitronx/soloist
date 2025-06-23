@@ -4,6 +4,11 @@ RSpec.describe Soloist::Config do
   let(:soloist_rc_path) { File.expand_path("soloistrc", RSpec.configuration.tempdir) }
   let(:soloist_rc) { Soloist::RoyalCrown.new(:path => soloist_rc_path) }
   let(:config) { Soloist::Config.new(soloist_rc) }
+
+  before do
+    allow(config).to receive(:chef_cache_path) { '/var/chef/cache' }
+  end
+
   let(:cookbook_path) { File.expand_path("cookbooks", RSpec.configuration.tempdir) }
   let(:nested_cookbook_path) { File.expand_path("whoa/cookbooks", RSpec.configuration.tempdir) }
 
@@ -12,6 +17,7 @@ RSpec.describe Soloist::Config do
 
     it { should include 'file_cache_path "/var/chef/cache"' }
     it { should include %(json_attribs "#{config.node_json_path}") }
+    it { should include 'ohai.optional_plugins = [ :Passwd ] if ohai.respond_to?(:optional_plugins)' }
   end
 
   describe "#cookbook_paths" do
@@ -143,7 +149,7 @@ RSpec.describe Soloist::Config do
       before { allow(ENV).to receive(:[]).and_return("LOLWUT") }
 
       it "does not merge the attribute" do
-        expect(config.compiled["recipes"]).to be_empty
+        expect(config.compiled.recipes).to be_empty
       end
     end
 
@@ -203,12 +209,12 @@ RSpec.describe Soloist::Config do
     subject { config.log_level }
 
     context "when LOG_LEVEL is not set" do
-      it { should == "info" }
+      it { should == :info }
     end
 
     context "when LOG_LEVEL is set" do
       before { allow(ENV).to receive(:[]).and_return("BEANS") }
-      it { should == "BEANS" }
+      it { should == :info }
     end
   end
 
@@ -216,12 +222,12 @@ RSpec.describe Soloist::Config do
     subject { config.debug? }
 
     context "when log_level is not debug" do
-      it { should_not be }
+      it { should_not be true }
     end
 
     context "when log_level is debug" do
-      before { allow(config).to receive(:log_level).and_return("debug") }
-      it { should be }
+      before { allow(config).to receive(:log_level).and_return(:debug) }
+      it { should be true }
     end
   end
 end

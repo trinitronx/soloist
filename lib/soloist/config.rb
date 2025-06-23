@@ -28,6 +28,7 @@ module Soloist
         file_cache_path "#{chef_cache_path}"
         cookbook_path #{cookbook_paths.inspect}
         json_attribs "#{node_json_path}"
+        ohai.optional_plugins = [ :Passwd ] if ohai.respond_to?(:optional_plugins)
       SOLO_RB
     end
 
@@ -75,10 +76,12 @@ module Soloist
 
     def compiled
       @compiled ||= royal_crown.dup.tap do |working_royal_crown|
-        while working_royal_crown["env_variable_switches"]
-          working_royal_crown.delete("env_variable_switches").each do |variable, switch|
-            switch.each do |value, inner|
-              working_royal_crown.merge!(inner) if ENV[variable] == value
+        until working_royal_crown.env_variable_switches.empty?
+          switches = working_royal_crown.env_variable_switches
+          working_royal_crown.env_variable_switches = {}
+          switches.each do |variable, switch|
+            switch.select { |value, _| ENV[variable] == value }.each do |_, inner|
+              working_royal_crown.merge!(RoyalCrown.new(inner))
             end
           end
         end
@@ -86,11 +89,26 @@ module Soloist
     end
 
     def log_level
-      ENV["LOG_LEVEL"] || "info"
+      case ENV["LOG_LEVEL"]
+      when 'debug'
+        :debug
+      when 'info'
+        :info
+      when 'warn'
+        :warn
+      when 'error'
+        :error
+      when 'fatal'
+        :fatal
+      else
+        puts "Unknown log level: #{ENV['LOG_LEVEL']}" if ENV['LOG_LEVEL']
+        puts 'Using default log level: info' if ENV['LOG_LEVEL']
+        :info
+      end
     end
 
     def debug?
-      log_level == "debug"
+      log_level == :debug
     end
 
     private

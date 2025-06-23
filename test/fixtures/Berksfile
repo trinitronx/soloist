@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+
+solver :gecode
+source 'https://supermarket.chef.io'
+
+# A sweet, do-nothing cookbook for tooling testing
+cookbook 'ckbk', '~> 0.2.7'
